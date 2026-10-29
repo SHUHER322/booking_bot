@@ -6,17 +6,17 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.types import BotCommand, BotCommandScopeDefault
+from aiogram.types import BotCommand, BotCommandScopeChat, BotCommandScopeDefault
 
 from .config import load_config
 from .db import Database
-from . import handlers, my_bookings
+from . import admin, handlers, my_bookings
 
 log = logging.getLogger(__name__)
 
 
-async def setup_commands(bot: Bot) -> None:
-    """Список команд для кнопки «Меню»."""
+async def setup_commands(bot: Bot, config) -> None:
+    """Список команд для кнопки «Меню». Админы видят ещё и расписание."""
     commands = [
         BotCommand(command="book", description="Записаться"),
         BotCommand(command="my", description="Мои записи"),
@@ -26,6 +26,15 @@ async def setup_commands(bot: Bot) -> None:
         await bot.set_my_commands(commands, scope=BotCommandScopeDefault())
     except Exception:
         log.exception("Не удалось установить список команд")
+    admin_commands = [BotCommand(command="today", description="Расписание на сегодня"),
+                      BotCommand(command="tomorrow", description="Расписание на завтра")]
+    for chat_id in config.admin_chat_ids:
+        try:
+            await bot.set_my_commands(admin_commands + commands,
+                                      scope=BotCommandScopeChat(chat_id=chat_id))
+        except Exception:
+            # Например, админ ещё ни разу не писал боту — Telegram не знает этот чат
+            log.exception("Не удалось установить команды для админа %s", chat_id)
 
 
 async def main() -> None:
@@ -42,10 +51,12 @@ async def main() -> None:
     bot = Bot(config.bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     # db и config передаются в обработчики как аргументы
     dp = Dispatcher(storage=MemoryStorage(), db=db, config=config)
-    # «Мои записи» — первым: в общем роутере в конце стоит «ловушка» для старых кнопок
+    # Админ и «Мои записи» — раньше общего роутера: в его конце стоит
+    # «ловушка» для старых кнопок, она перехватила бы их нажатия
+    dp.include_router(admin.router)
     dp.include_router(my_bookings.router)
     dp.include_router(handlers.router)
-    await setup_commands(bot)
+    await setup_commands(bot, config)
     await dp.start_polling(bot)
 
 

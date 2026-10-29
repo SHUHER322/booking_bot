@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import time, timedelta
 from pathlib import Path
 
+DEFAULT_CANCEL_REASONS = ("Мастер заболел", "Технические причины", "Изменился график мастера")
 WEEKDAYS = ("пн", "вт", "ср", "чт", "пт", "сб", "вс")  # индекс = date.weekday()
 
 
@@ -42,6 +43,7 @@ class Salon:
     services: tuple[Service, ...]
     masters: tuple[Master, ...]
     phone: str = ""                   # телефон салона — подсказываем, если отменить уже поздно
+    cancel_reasons: tuple[str, ...] = DEFAULT_CANCEL_REASONS  # кнопки причин отмены для админа
 
     def service(self, name: str) -> Service | None:
         return next((s for s in self.services if s.name == name), None)
@@ -161,7 +163,13 @@ def parse_salon(data: dict) -> Salon:
             isinstance(h, int) and not isinstance(h, bool) and h > 0 for h in reminders):
         raise SalonConfigError(f"reminders — список часов, например [24, 2], сейчас {reminders!r}")
 
+    reasons = head.get("cancel_reasons", list(DEFAULT_CANCEL_REASONS))
+    if not isinstance(reasons, list) or not all(isinstance(r, str) and r.strip() for r in reasons):
+        raise SalonConfigError("cancel_reasons — список причин в кавычках, "
+                               f'например ["Мастер заболел"], сейчас {reasons!r}')
+
     return Salon(
+        cancel_reasons=tuple(r.strip() for r in reasons),
         name=str(head.get("name", "Салон")).strip(),
         address=str(head.get("address", "")).strip(),
         phone=str(head.get("phone", "")).strip(),

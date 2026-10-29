@@ -113,3 +113,11 @@ def test_missing_and_broken_file(tmp_path):
 def test_toml_example_parses_with_tomllib():
     with (ROOT / "salon.toml").open("rb") as f:
         assert "services" in tomllib.load(f)
+
+
+def test_cancel_reasons():
+    assert parse_salon(config()).cancel_reasons == (
+        "Мастер заболел", "Технические причины", "Изменился график мастера")
+    assert parse_salon(config(cancel_reasons=[" Ремонт "])).cancel_reasons == ("Ремонт",)
+    with pytest.raises(SalonConfigError, match="cancel_reasons"):
+        parse_salon(config(cancel_reasons=["", "Ок"]))

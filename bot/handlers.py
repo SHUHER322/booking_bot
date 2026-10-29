@@ -144,7 +144,8 @@ async def start(message: Message, state: FSMContext, config: Config):
 @router.message(or_f(Command("cancel"), F.text == BTN_CANCEL))
 async def cancel(message: Message, state: FSMContext):
     await state.clear()
-    await message.answer("Запись отменена.", reply_markup=main_kb())
+    # Нейтрально: отменяется текущее действие (запись или ввод причины админом)
+    await message.answer("Хорошо, отменил — ничего не сохранено.", reply_markup=main_kb())
 
 
 @router.message(or_f(Command("book"), F.text == BTN_BOOK))
@@ -259,7 +260,7 @@ async def other_contacts(callback: CallbackQuery, state: FSMContext, config: Con
 @router.callback_query(BookingForm.choosing, F.data == ABORT)
 async def abort(callback: CallbackQuery, state: FSMContext):
     await state.clear()
-    await callback.message.edit_text("Запись отменена.")
+    await callback.message.edit_text("Запись не оформлена. Записаться — «📅 Записаться».")
     await callback.answer()
 
 

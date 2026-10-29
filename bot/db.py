@@ -37,14 +37,16 @@ CREATE TABLE IF NOT EXISTS bookings (
     status       TEXT NOT NULL DEFAULT 'active',   -- active | cancelled
     cancelled_by TEXT,                             -- client | admin
     reminded     TEXT NOT NULL DEFAULT '',         -- за сколько часов уже напомнили: "24,2"
-    created_at   TEXT NOT NULL
+    created_at   TEXT NOT NULL,
+    cancel_reason TEXT                             -- причина отмены салоном (если указали)
 );
 CREATE INDEX IF NOT EXISTS bookings_master_time ON bookings (master, starts_at);
 CREATE INDEX IF NOT EXISTS bookings_user ON bookings (user_id, starts_at);
 """
 
 BOOKING_COLUMNS = ("id, user_id, client_name, client_phone, username, master, service, "
-                   "price, starts_at, ends_at, status, cancelled_by, reminded, created_at")
+                   "price, starts_at, ends_at, status, cancelled_by, reminded, created_at, "
+                   "cancel_reason")
 
 
 def to_text(moment: datetime) -> str:
@@ -79,6 +81,7 @@ class Booking:
     cancelled_by: str | None
     reminded: tuple[int, ...]
     created_at: datetime
+    cancel_reason: str | None = None
 
     @property
     def active(self) -> bool:
@@ -87,10 +90,10 @@ class Booking:
 
 def _booking(row: tuple) -> Booking:
     (id_, user_id, name, phone, username, master, service, price,
-     starts, ends, status, cancelled_by, reminded, created) = row
+     starts, ends, status, cancelled_by, reminded, created, reason) = row
     return Booking(id_, user_id, name, phone, username, master, service, price,
                    from_text(starts), from_text(ends), status, cancelled_by,
-                   tuple(int(h) for h in reminded.split(",") if h), from_text(created))
+                   tuple(int(h) for h in reminded.split(",") if h), from_text(created), reason)
 
 
 class Database:
@@ -120,6 +123,10 @@ class Database:
     def _init(self) -> None:
         with self._connect() as db:
             db.executescript(SCHEMA)
+            # Миграция: в базах, созданных до появления причины отмены, нет этого столбца
+            columns = {row[1] for row in db.execute("PRAGMA table_info(bookings)")}
+            if "cancel_reason" not in columns:
+                db.execute("ALTER TABLE bookings ADD COLUMN cancel_reason TEXT")
 
     async def init(self) -> None:
         await self._run(self._init)
@@ -247,12 +254,13 @@ class Database:
         """Активные записи на день — для расписания админа."""
         return await self._run(self._day_bookings, day)
 
-    def _cancel(self, booking_id: int, by: str) -> bool:
+    def _cancel(self, booking_id: int, by: str, reason: str | None) -> bool:
         with self._connect() as db:
-            cursor = db.execute("UPDATE bookings SET status = 'cancelled', cancelled_by = ? "
-                                "WHERE id = ? AND status = 'active'", (by, booking_id))
+            cursor = db.execute("UPDATE bookings SET status = 'cancelled', cancelled_by = ?, "
+                                "cancel_reason = ? WHERE id = ? AND status = 'active'",
+                                (by, reason, booking_id))
             return cursor.rowcount == 1
 
-    async def cancel(self, booking_id: int, by: str) -> bool:
+    async def cancel(self, booking_id: int, by: str, reason: str | None = None) -> bool:
         """Отменяет запись. False — если её уже отменили раньше."""
-        return await self._run(self._cancel, booking_id, by)
+        return await self._run(self._cancel, booking_id, by, reason)

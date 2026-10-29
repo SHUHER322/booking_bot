@@ -74,3 +74,26 @@ def test_user_and_day_bookings(db):
     assert [b.id for b in asyncio.run(db.user_bookings(1, NOW))] == [early.id, late.id]
     assert past.id not in [b.id for b in asyncio.run(db.user_bookings(1, NOW))]
     assert [b.id for b in asyncio.run(db.day_bookings(DAY))] == [early.id, other.id, late.id]
+
+
+def test_cancel_reason_saved(db):
+    booking = book(db, at(10), at(11))
+    assert asyncio.run(db.cancel(booking.id, "admin", "Мастер заболел"))
+    saved = asyncio.run(db.get_booking(booking.id))
+    assert (saved.cancelled_by, saved.cancel_reason) == ("admin", "Мастер заболел")
+
+
+def test_migration_adds_cancel_reason(tmp_path):
+    """База из прошлой версии (без столбца cancel_reason) обновляется сама."""
+    import sqlite3
+    path = tmp_path / "old.db"
+    old = sqlite3.connect(path)
+    old.execute("CREATE TABLE bookings (id INTEGER PRIMARY KEY, user_id INTEGER, "
+                "client_name TEXT, client_phone TEXT, username TEXT, master TEXT, service TEXT, "
+                "price INTEGER, starts_at TEXT, ends_at TEXT, status TEXT DEFAULT 'active', "
+                "cancelled_by TEXT, reminded TEXT DEFAULT '', created_at TEXT)")
+    old.commit()
+    old.close()
+    database = Database(str(path))
+    asyncio.run(database.init())
+    assert book(database, at(10), at(11)).cancel_reason is None

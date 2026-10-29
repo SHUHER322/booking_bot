@@ -3,7 +3,8 @@ from datetime import date, datetime
 
 import pytest
 
-from bot.texts import day_button, duration, is_valid_phone, long_date, rub, when
+from bot.texts import (can_cancel, day_button, duration, hours_text, is_valid_phone,
+                       long_date, rub, when)
 
 TODAY = date(2026, 11, 2)  # понедельник
 
@@ -35,3 +36,24 @@ def test_long_date_and_when():
 ])
 def test_phone(phone, ok):
     assert is_valid_phone(phone) is ok
+
+
+def booking(starts, status="active"):
+    from bot.db import Booking
+    return Booking(1, 1, "Иван", "+7", None, "Алексей", "Стрижка", 1200, starts,
+                   starts, status, None, (), starts)
+
+
+def test_can_cancel():
+    from datetime import timedelta
+    start = datetime(2026, 11, 2, 15, 0)
+    limit = timedelta(hours=3)
+    assert can_cancel(booking(start), datetime(2026, 11, 2, 12, 0), limit)       # ровно за 3 ч
+    assert not can_cancel(booking(start), datetime(2026, 11, 2, 12, 1), limit)   # уже поздно
+    assert not can_cancel(booking(start, "cancelled"), datetime(2026, 11, 1), limit)
+
+
+def test_hours_text():
+    from datetime import timedelta
+    assert hours_text(timedelta(hours=3)) == "3 ч"
+    assert hours_text(timedelta(hours=1.5)) == "1.5 ч"

@@ -41,6 +41,7 @@ class Salon:
     reminders: tuple[int, ...]        # за сколько часов напоминать, по убыванию
     services: tuple[Service, ...]
     masters: tuple[Master, ...]
+    phone: str = ""                   # телефон салона — подсказываем, если отменить уже поздно
 
     def service(self, name: str) -> Service | None:
         return next((s for s in self.services if s.name == name), None)
@@ -163,6 +164,7 @@ def parse_salon(data: dict) -> Salon:
     return Salon(
         name=str(head.get("name", "Салон")).strip(),
         address=str(head.get("address", "")).strip(),
+        phone=str(head.get("phone", "")).strip(),
         slot_step=_positive_int(head, "slot_step", "[salon]", 30),
         days_ahead=_positive_int(head, "days_ahead", "[salon]", 14),
         min_before=_hours(head, "min_hours_before", 1),

@@ -1,7 +1,7 @@
 """Тексты и форматирование: даты по-русски, цены, карточка записи."""
 import html
 import re
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from .db import Booking
 from .salon import Service
@@ -83,3 +83,13 @@ def admin_card(b: Booking, title: str) -> str:
             f"👤 Мастер: {html.escape(b.master)}\n"
             f"Клиент: {html.escape(b.client_name)}, {html.escape(b.client_phone)}\n"
             f"Telegram: {html.escape(username)}")
+
+
+def can_cancel(booking: Booking, now: datetime, cancel_before: timedelta) -> bool:
+    """Клиент может отменить сам, если до начала осталось не меньше cancel_before."""
+    return booking.active and booking.starts_at - now >= cancel_before
+
+
+def hours_text(delta: timedelta) -> str:
+    """timedelta(hours=3) → '3 ч', 1.5 часа → '1.5 ч'."""
+    return f"{delta.total_seconds() / 3600:g} ч"

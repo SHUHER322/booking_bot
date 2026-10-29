@@ -10,7 +10,7 @@ from aiogram.types import BotCommand, BotCommandScopeDefault
 
 from .config import load_config
 from .db import Database
-from .handlers import router
+from . import handlers, my_bookings
 
 log = logging.getLogger(__name__)
 
@@ -42,7 +42,9 @@ async def main() -> None:
     bot = Bot(config.bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     # db и config передаются в обработчики как аргументы
     dp = Dispatcher(storage=MemoryStorage(), db=db, config=config)
-    dp.include_router(router)
+    # «Мои записи» — первым: в общем роутере в конце стоит «ловушка» для старых кнопок
+    dp.include_router(my_bookings.router)
+    dp.include_router(handlers.router)
     await setup_commands(bot)
     await dp.start_polling(bot)
 

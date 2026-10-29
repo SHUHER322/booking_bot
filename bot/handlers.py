@@ -155,16 +155,6 @@ async def book(message: Message, state: FSMContext, config: Config):
     await message.answer(text, reply_markup=kb)
 
 
-@router.message(or_f(Command("my"), F.text == BTN_MY))
-async def my_bookings(message: Message, db: Database, config: Config):
-    # Полноценный список с отменой — на следующем шаге
-    bookings = await db.user_bookings(message.from_user.id, config.now())
-    if not bookings:
-        await message.answer("У вас нет предстоящих записей.", reply_markup=main_kb())
-        return
-    await message.answer("\n\n".join(booking_card(b) for b in bookings), reply_markup=main_kb())
-
-
 # --- шаги записи (кнопки под сообщением) ---
 
 @router.callback_query(BookingForm.choosing, F.data.startswith(SERVICE))

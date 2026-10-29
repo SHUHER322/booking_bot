@@ -1,0 +1,11 @@
+# Что НЕ кладём в образ: секреты, базу, окружение и служебные файлы
+.env
+*.db
+data/
+.venv/
+__pycache__/
+.git/
+.vscode/
+run.bat
+.pytest_cache/
+tests/

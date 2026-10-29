@@ -1,0 +1,23 @@
+services:
+  bot:
+    build: .
+    container_name: booking_bot
+    # Если бот упал или сервер перезагрузился — Docker поднимет его сам
+    restart: unless-stopped
+    # Токен, chat id и остальные настройки берутся из .env
+    env_file: .env
+    environment:
+      # Пути внутри контейнера переопределяем, остальное — из .env
+      DB_PATH: /app/data/bookings.db
+      SALON_CONFIG: /app/salon.toml
+    volumes:
+      # База лежит снаружи контейнера, в папке data/ — переживёт пересборку
+      - ./data:/app/data
+      # Настройки салона подключаются снаружи: правка без пересборки, нужен только перезапуск
+      - ./salon.toml:/app/salon.toml:ro
+    # Логи: не больше 3 файлов по 10 МБ, чтобы не забить диск сервера
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

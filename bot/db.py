@@ -163,6 +163,24 @@ class Database:
         """Занятые промежутки за день по мастерам: {"Алексей": [(10:00, 11:00), …]}."""
         return await self._run(self._busy, day)
 
+    def _busy_between(self, first: date, last: date) -> dict[date, dict[str, list[Interval]]]:
+        start = to_text(datetime.combine(first, datetime.min.time()))
+        end = to_text(datetime.combine(last + timedelta(days=1), datetime.min.time()))
+        with self._connect() as db:
+            rows = db.execute("SELECT master, starts_at, ends_at FROM bookings "
+                              "WHERE status = 'active' AND starts_at >= ? AND starts_at < ?",
+                              (start, end)).fetchall()
+        result: dict[date, dict[str, list[Interval]]] = {}
+        for master, starts, ends in rows:
+            begin = from_text(starts)
+            result.setdefault(begin.date(), {}).setdefault(master, []).append(
+                (begin, from_text(ends)))
+        return result
+
+    async def busy_between(self, first: date, last: date) -> dict[date, dict[str, list[Interval]]]:
+        """То же, что busy, но сразу за несколько дней — одним запросом к базе."""
+        return await self._run(self._busy_between, first, last)
+
     # --- записи ---
 
     def _add_booking(self, client: Client, master: str, service: str, price: int,

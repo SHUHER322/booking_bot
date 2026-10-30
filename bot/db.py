@@ -254,6 +254,30 @@ class Database:
         """Активные записи на день — для расписания админа."""
         return await self._run(self._day_bookings, day)
 
+    def _upcoming(self, start: datetime, end: datetime) -> list[Booking]:
+        with self._connect() as db:
+            rows = db.execute(f"SELECT {BOOKING_COLUMNS} FROM bookings "
+                              "WHERE status = 'active' AND starts_at > ? AND starts_at <= ? "
+                              "ORDER BY starts_at", (to_text(start), to_text(end))).fetchall()
+        return [_booking(r) for r in rows]
+
+    async def upcoming(self, start: datetime, end: datetime) -> list[Booking]:
+        """Активные записи, которые начнутся в промежутке (start, end] — для напоминаний."""
+        return await self._run(self._upcoming, start, end)
+
+    def _mark_reminded(self, booking_id: int, hours: set[int]) -> None:
+        with self._connect() as db:
+            row = db.execute("SELECT reminded FROM bookings WHERE id = ?", (booking_id,)).fetchone()
+            if row is None:
+                return
+            done = {int(h) for h in row[0].split(",") if h} | set(hours)
+            db.execute("UPDATE bookings SET reminded = ? WHERE id = ?",
+                       (",".join(str(h) for h in sorted(done, reverse=True)), booking_id))
+
+    async def mark_reminded(self, booking_id: int, hours: set[int]) -> None:
+        """Отметить, что напоминания за эти часы уже отправлены (или пропущены)."""
+        await self._run(self._mark_reminded, booking_id, hours)
+
     def _cancel(self, booking_id: int, by: str, reason: str | None) -> bool:
         with self._connect() as db:
             cursor = db.execute("UPDATE bookings SET status = 'cancelled', cancelled_by = ?, "

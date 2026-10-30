@@ -41,6 +41,12 @@ def my_list(bookings: list[Booking], now: datetime, config: Config) -> tuple[str
     return text, InlineKeyboardMarkup(inline_keyboard=buttons) if buttons else None
 
 
+def cancel_button_kb(booking: Booking) -> InlineKeyboardMarkup:
+    """Кнопка отмены под напоминанием — ведёт в тот же сценарий, что и «Мои записи»."""
+    return InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(
+        text="❌ Отменить запись", callback_data=f"{ASK_CANCEL}{booking.id}")]])
+
+
 async def _own_booking(callback: CallbackQuery, db: Database, prefix: str) -> Booking | None:
     """Запись по кнопке — только если она принадлежит этому клиенту."""
     try:

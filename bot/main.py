@@ -10,6 +10,7 @@ from aiogram.types import BotCommand, BotCommandScopeChat, BotCommandScopeDefaul
 
 from .config import load_config
 from .db import Database
+from .reminders import reminders_loop
 from . import admin, handlers, my_bookings
 
 log = logging.getLogger(__name__)
@@ -57,7 +58,13 @@ async def main() -> None:
     dp.include_router(my_bookings.router)
     dp.include_router(handlers.router)
     await setup_commands(bot, config)
-    await dp.start_polling(bot)
+
+    # Напоминания работают параллельно с приёмом сообщений
+    reminders_task = asyncio.create_task(reminders_loop(bot, db, config))
+    try:
+        await dp.start_polling(bot)
+    finally:
+        reminders_task.cancel()
 
 
 if __name__ == "__main__":

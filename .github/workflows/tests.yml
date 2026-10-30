@@ -24,3 +24,11 @@ jobs:
 
       - name: Запустить тесты
         run: pytest -v
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      # Проверяем, что Dockerfile собирается — запуск в Docker из README рабочий
+      - name: Собрать Docker-образ
+        run: docker build -t booking_bot .
